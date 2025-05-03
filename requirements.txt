@@ -1,0 +1,9 @@
+fastapi
+pydantic
+pydantic_settings
+pymongo[srv]
+itsdangerous
+pyjwt
+passlib
+motor
+bcrypt
