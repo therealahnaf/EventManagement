@@ -37,8 +37,10 @@ class Event(BaseModel):
     location:str
     date: datetime
     created_at: datetime
-    price: float
-    attendee_ids: list[PyObjectId] = Field(default_factory=list)
+    general_price: float
+    vip_price: float
+    general_attendee_ids: list[PyObjectId] = Field(default_factory=list)
+    vip_attendee_ids: list[PyObjectId] = Field(default_factory=list)
 
     class Config:
         json_encoders = {ObjectId: str}

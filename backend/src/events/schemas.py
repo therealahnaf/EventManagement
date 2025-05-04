@@ -1,6 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
-from typing import List
+from typing import List, Literal
 from src.db.models import Event
 
 class EventCreateModel(BaseModel):
@@ -9,6 +9,10 @@ class EventCreateModel(BaseModel):
     type: str
     location: str
     date: datetime
-    price: float
+    general_price: float
+    vip_price: float
     
+class RegistrationRequest(BaseModel):
+    event_id: str
+    type: Literal["General", "VIP"]
     

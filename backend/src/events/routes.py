@@ -3,11 +3,12 @@ from typing import List
 from fastapi import APIRouter, Depends, status
 from fastapi.exceptions import HTTPException
 
-from src.auth.dependencies import AccessTokenFromCookie, RoleChecker
+from src.auth.dependencies import AccessTokenFromCookie, RoleChecker, get_current_user_with_cookie
 from src.events.service import EventService
 from src.db.main import get_db
-from src.db.models import Event
-from .schemas import EventCreateModel
+from src.db.models import Event, User
+from src.payments.stripe_service import StripeService
+from .schemas import EventCreateModel, RegistrationRequest
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -29,4 +30,46 @@ async def create_event(
 ):
     event_service = EventService(db)
     return await event_service.create_event(event_data)
+
+@events_router.get("/{event_id}", dependencies=[Depends(role_checker)])
+async def get_event_by_id(
+    event_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    event_service = EventService(db)
+    return await event_service.get_event_by_id(event_id)
+
+@events_router.post("/{event_id}/attend", dependencies=[Depends(role_checker)])
+async def attend_event(
+    request: RegistrationRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    user: User = Depends(get_current_user_with_cookie),
+):
+    event_service = EventService(db)
+    event = await event_service.get_event_by_id(request.event_id)
+    if request.type == "General":
+        fee = event.general_price
+    elif request.type == "VIP":
+        fee = event.vip_price
+    else:
+        raise HTTPException(status_code=400, detail="Invalid ticket type")
     
+    if fee == 0:
+        return await event_service.attend_event(request.event_id, user.id, request.type)
+    else:
+        # Strip payment integration
+        stripe_service = StripeService()
+        checkout_url = stripe_service.create_checkout_session(
+            user_email=user.email,
+            amount=fee,
+            event_name=event.name,
+            ticket_type=request.type,
+            metadata={
+                "user_email": user.email,
+                "user_id": user.id,
+                "event_id": request.event_id,
+                "ticket_type": request.type
+            }
+        )
+        return {"checkout_url": checkout_url}
+
