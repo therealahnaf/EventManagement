@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from src.auth.routes import auth_router
+from src.events.routes import events_router
 from src.errors import register_all_errors
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -26,3 +27,4 @@ app.add_middleware(
     )
 
 app.include_router(auth_router, prefix=f"{version_prefix}/auth", tags=["auth"])
+app.include_router(events_router, prefix=f"{version_prefix}/event", tags=["event"])
