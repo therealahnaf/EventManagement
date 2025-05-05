@@ -11,8 +11,8 @@ class EventService:
         self.events = db["events"]  # MongoDB collection
         print("Event collection initialized")
 
-    async def get_all_events(self):
-        events = await self.events.find().to_list(length=10)
+    async def get_all_events(self, filters: dict = {}):
+        events = await self.events.find(filters).to_list(length=10)
 
         return [Event(**event) for event in events]
     
@@ -45,3 +45,13 @@ class EventService:
 
         await self.events.update_one({"_id": ObjectId(event_id)}, {"$set": event})
         return Event(**event)
+    
+    async def update_event(self, event_id: str, event_data: EventCreateModel):
+        event_dict = event_data.model_dump()
+        event_dict["updated_at"] = datetime.now()
+        await self.events.update_one({"_id": ObjectId(event_id)}, {"$set": event_dict})
+        return Event(**event_dict)
+    
+    async def delete_event(self, event_id: str):
+        await self.events.delete_one({"_id": ObjectId(event_id)})
+        return {"message": "Event deleted successfully"}

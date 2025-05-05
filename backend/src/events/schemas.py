@@ -15,4 +15,3 @@ class EventCreateModel(BaseModel):
 class RegistrationRequest(BaseModel):
     event_id: str
     type: Literal["General", "VIP"]
-    

@@ -1,6 +1,7 @@
-from typing import List
+from typing import List, Optional
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Query
 from fastapi.exceptions import HTTPException
 
 from src.auth.dependencies import AccessTokenFromCookie, RoleChecker, get_current_user_with_cookie
@@ -19,9 +20,36 @@ role_checker = RoleChecker(["admin", "user"])
 @events_router.get("/events", dependencies=[Depends(role_checker)])
 async def get_all_events(
     db: AsyncIOMotorDatabase = Depends(get_db),
+    type: Optional[str] = Query(None),
+    date: Optional[datetime] = Query(None),
+    location: Optional[str] = Query(None),
+    min_price: Optional[float] = Query(None),
+    max_price: Optional[float] = Query(None),
 ):
+    filters = {}
+
+    if type:
+        filters["type"] = type
+    if date:
+        filters["date"] = date
+    if location:
+        filters["location"] = location
+
+    # Add a price range filter (checking both general and VIP prices)
+    if min_price is not None or max_price is not None:
+        price_filter = {}
+        if min_price is not None:
+            price_filter["$gte"] = min_price
+        if max_price is not None:
+            price_filter["$lte"] = max_price
+
+        filters["$or"] = [
+            {"general_price": price_filter},
+            {"vip_price": price_filter}
+        ]
+
     event_service = EventService(db)
-    return await event_service.get_all_events()
+    return await event_service.get_all_events(filters)
 
 @events_router.post("/create-event", dependencies=[Depends(RoleChecker(["admin"]))])
 async def create_event(
@@ -72,4 +100,21 @@ async def attend_event(
             }
         )
         return {"checkout_url": checkout_url}
+
+@events_router.put("/{event_id}", dependencies=[Depends(RoleChecker(["admin"]))])
+async def update_event(
+    event_id: str,
+    event_data: EventCreateModel,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    event_service = EventService(db)
+    return await event_service.update_event(event_id, event_data)
+
+@events_router.delete("/{event_id}", dependencies=[Depends(RoleChecker(["admin"]))])
+async def delete_event(
+    event_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    event_service = EventService(db)
+    return await event_service.delete_event(event_id)
 
