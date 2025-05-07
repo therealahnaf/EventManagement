@@ -24,6 +24,7 @@ class User(BaseModel):
     role: str = "user"
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    tickets: dict[PyObjectId, str] = Field(default_factory=dict)
 
     class Config:
         json_encoders = {ObjectId: str}

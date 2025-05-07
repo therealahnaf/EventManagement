@@ -6,6 +6,7 @@ from src.db.models import User
 
 from .schemas import UserCreateModel
 from .utils import generate_passwd_hash
+from src.events.utils import TicketService
 
 class UserService:
     def __init__(self, db):
@@ -21,6 +22,22 @@ class UserService:
             return User(**user)
         print(f"No user found with email: {email}")
         return None
+    
+    async def get_user_by_id(self, user_id: str):
+        user = await self.users.find_one({"_id": ObjectId(user_id)})
+        if user:
+            return User(**user)
+        return None
+    
+    async def save_user_ticket(self, user_id: str, event_id: str):
+        user = await self.get_user_by_id(user_id)
+        try:
+            ticket_token = user.tickets[event_id]
+            ticket_service = TicketService()
+            ticket_pdf = ticket_service.generate_ticket_and_save(ticket_token)
+            return ticket_pdf
+        except Exception as e:
+            raise
 
     async def user_exists(self, email: str):
         exists = await self.get_user_by_email(email) is not None

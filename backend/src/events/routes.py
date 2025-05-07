@@ -83,7 +83,7 @@ async def attend_event(
         raise HTTPException(status_code=400, detail="Invalid ticket type")
     
     if fee == 0:
-        return await event_service.attend_event(request.event_id, user.id, request.type)
+        return await event_service.attend_event(request.event_id, user.id, user.first_name, user.last_name, request.type)
     else:
         # Strip payment integration
         stripe_service = StripeService()
@@ -100,6 +100,15 @@ async def attend_event(
             }
         )
         return {"checkout_url": checkout_url}
+
+@events_router.get("/{user_id}/events/{event_id}/get-ticket")
+async def get_ticket_by_user_id(
+    user_id: str,
+    event_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    event_service = EventService(db)
+    return await event_service.get_ticket_by_user_id(user_id, event_id)
 
 @events_router.put("/{event_id}", dependencies=[Depends(RoleChecker(["admin"]))])
 async def update_event(

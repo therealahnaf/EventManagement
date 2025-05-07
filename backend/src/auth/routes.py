@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, status, BackgroundTasks, Response
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from fastapi.responses import StreamingResponse
 
 from src.db.main import get_db
+from src.events.service import EventService
 
 from .dependencies import (
     RefreshTokenFromCookie,
@@ -122,8 +124,47 @@ async def login_users(
 @auth_router.get("/me")
 async def get_current_user_details(
     user=Depends(get_current_user_with_cookie),
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-    return user
+    user_service = UserService(db)
+    user_details = await user_service.get_user_by_id(user.id)
+    return user_details
+
+@auth_router.get("/me/events")
+async def get_user_events(
+    user=Depends(get_current_user_with_cookie),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    user_service = UserService(db)
+    user_details = await user_service.get_user_by_id(user.id)
+    user_events = []
+    event_service = EventService(db)
+
+    for event_id in user_details.tickets:
+        event = await event_service.get_event_by_id(event_id)
+        user_events.append(event)
+
+    return user_events
+
+@auth_router.get("/me/events/{event_id}/ticket")
+async def get_user_event_ticket(
+    event_id: str,
+    user=Depends(get_current_user_with_cookie),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    user_service = UserService(db)
+    try:
+        ticket_pdf = await user_service.save_user_ticket(user.id, event_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return StreamingResponse(
+        ticket_pdf, 
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={event_id}_ticket.pdf"
+        }
+    )
 
 @auth_router.get("/logout")
 async def logout(response: Response):
